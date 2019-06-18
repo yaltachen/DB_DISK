@@ -11,8 +11,10 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/yaltachen/emulate/BD_Disk/FILESTORE-SERVER/meta"
-	"github.com/yaltachen/emulate/BD_Disk/FILESTORE-SERVER/util"
+	"github.com/yaltachen/BD_Disk/meta"
+	"github.com/yaltachen/BD_Disk/util"
+
+	dblayer "github.com/yaltachen/BD_Disk/db"
 )
 
 // 处理文件上传
@@ -45,7 +47,10 @@ func postUploadHandler(w http.ResponseWriter, r *http.Request) {
 		fileHeader *multipart.FileHeader
 		fileMeta   meta.FileMeta
 		localFile  *os.File
+		username   string
 	)
+	r.ParseForm()
+	username = r.Form.Get("username")
 	if file, fileHeader, err = r.FormFile("file"); err != nil {
 		fmt.Printf("Failed to get data, err: %s\n", err.Error())
 		return
@@ -74,7 +79,19 @@ func postUploadHandler(w http.ResponseWriter, r *http.Request) {
 	// meta.UpdateFileMeta(fileMeta)
 	meta.UpdateFileMetaDB(fileMeta)
 
-	http.Redirect(w, r, "/file/upload/suc", http.StatusFound)
+	// 更新tbl_user_file
+	if dblayer.OnUserFileUploadFinished(username, fileMeta.FileSha1, fileMeta.FileName, fileMeta.FileSize) {
+		// http.Redirect(w, r, "/static/view/home.html", http.StatusFound)
+		resp := util.RespMsg{
+			Code: 0,
+			Msg:  "OK",
+			Data: nil,
+		}
+		w.Write(resp.JSONBytes())
+	} else {
+		w.Write([]byte("Upload failed."))
+	}
+
 }
 
 // 上传成功
@@ -89,7 +106,7 @@ func GetFileMetaHander(w http.ResponseWriter, r *http.Request) {
 
 	var (
 		fileHash string
-		fMeta    meta.FileMeta
+		fMeta    *meta.FileMeta
 		data     []byte
 		err      error
 	)
@@ -112,16 +129,25 @@ func FileQueryHandler(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 
 	var (
-		count  int
-		fMetas []meta.FileMeta
-		data   []byte
-		err    error
+		username string
+		count    int
+		// fMetas    []meta.FileMeta
+		data      []byte
+		userFiles []dblayer.UserFile
+		err       error
 	)
 
-	count, _ = strconv.Atoi(r.Form.Get("limit"))
-	fMetas = meta.GetLastFileMetas(count)
+	username = r.Form.Get("username")
 
-	if data, err = json.Marshal(fMetas); err != nil {
+	count, _ = strconv.Atoi(r.Form.Get("limit"))
+	// fMetas = meta.GetLastFileMetas(count)
+
+	if userFiles, err = dblayer.QueryUserFileMetas(username, int64(count)); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	if data, err = json.Marshal(userFiles); err != nil {
 		fmt.Printf("Failed to conver to json, err: %v\r\n", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
@@ -215,4 +241,53 @@ func FileRemoveHandler(w http.ResponseWriter, r *http.Request) {
 	meta.RemoveFileMeta(fileSha1)
 
 	w.WriteHeader(http.StatusOK)
+}
+
+func TryFastUploadHandler(w http.ResponseWriter, r *http.Request) {
+	var (
+		username string
+		filehash string
+		filename string
+		filesize int64
+		fileMeta *meta.FileMeta
+		err      error
+	)
+	r.ParseForm()
+	// 1. 解析请求参数
+	username = r.Form.Get("username")
+	filehash = r.Form.Get("filehash")
+	filename = r.Form.Get("filename")
+	filesize, _ = strconv.ParseInt(r.Form.Get("fileszie"), 10, 64)
+
+	// 2. 从文件表中查询相同hash值的文件
+	if fileMeta, err = meta.GetFileMetaDB(filehash); err != nil && err.Error() != "No record found." {
+		fmt.Println(err.Error())
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	// 3. 查不到 -> 秒传失败
+	if fileMeta == nil {
+		resp := util.RespMsg{
+			Code: -1,
+			Msg:  "秒传失败，请访问普通上传接口",
+		}
+		w.Write(resp.JSONBytes())
+		return
+	}
+
+	// 4. 查到 -> 将文件信息写入用户文件表，返回成功
+	if dblayer.OnUserFileUploadFinished(username, filehash, filename, filesize) {
+		resp := util.RespMsg{
+			Code: 0,
+			Msg:  "秒传成功",
+		}
+		w.Write(resp.JSONBytes())
+	} else {
+		resp := util.RespMsg{
+			Code: -2,
+			Msg:  "秒传失败，请稍后重试",
+		}
+		w.Write(resp.JSONBytes())
+		return
+	}
 }

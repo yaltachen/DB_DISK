@@ -4,7 +4,7 @@ import (
 	"sort"
 	"strings"
 
-	mydb "github.com/yaltachen/emulate/BD_Disk/FILESTORE-SERVER/db"
+	mydb "github.com/yaltachen/BD_Disk/db"
 )
 
 type FileMeta struct {
@@ -39,15 +39,15 @@ func GetFileMeta(fileSha1 string) FileMeta {
 }
 
 // GetFileMetaDB： 从Mysql获取文件元信息
-func GetFileMetaDB(fileSha1 string) (FileMeta, error) {
+func GetFileMetaDB(fileSha1 string) (*FileMeta, error) {
 	var (
 		err   error
 		tfile *mydb.TableFile
 	)
 	if tfile, err = mydb.GetFileMeta(fileSha1); err != nil {
-		return FileMeta{}, err
+		return nil, err
 	}
-	return FileMeta{
+	return &FileMeta{
 		FileName: tfile.FileName.String,
 		FileSha1: tfile.FileHash,
 		FileSize: tfile.FileSize.Int64,

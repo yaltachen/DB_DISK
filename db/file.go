@@ -6,7 +6,7 @@ import (
 	"log"
 	"strings"
 
-	mydb "github.com/yaltachen/emulate/BD_Disk/FILESTORE-SERVER/db/mysql"
+	mydb "github.com/yaltachen/BD_Disk/db/mysql"
 )
 
 type TableFile struct {
