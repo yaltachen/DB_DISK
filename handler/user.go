@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"time"
 
-	dblayer "github.com/yaltachen/emulate/BD_Disk/FILESTORE-SERVER/db"
-	"github.com/yaltachen/emulate/BD_Disk/FILESTORE-SERVER/util"
+	dblayer "github.com/yaltachen/BD_Disk/db"
+	"github.com/yaltachen/BD_Disk/util"
 )
 
 const (

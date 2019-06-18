@@ -3,7 +3,7 @@ package db
 import (
 	"log"
 
-	mydb "github.com/yaltachen/emulate/BD_Disk/FILESTORE-SERVER/db/mysql"
+	mydb "github.com/yaltachen/BD_Disk/db/mysql"
 )
 
 // TableUser : 用户表model
