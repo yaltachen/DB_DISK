@@ -120,3 +120,16 @@ func TryFastUploadHandler(w http.ResponseWriter, r *http.Request) {
   3. 通知上传完成
 - 服务架构变迁
 !["分块架构"](images/分块.png "分块架构")
+
+## 6.2 编码实现：Go实现Redis连接池（存储块信息）
+- 接口：上传初始化
+```go
+func InitiateMultipartUploadHandler(w http.ResponseWriter, r *http.Request) {
+  // 判断是否已经上传
+  // 生成唯一上传ID
+  // 缓存分块初始化信息
+
+}
+```
+## 6.3 编码实战：实现初始化分块上传接口
+## 6.4 编码实战：实现分块上传接口
